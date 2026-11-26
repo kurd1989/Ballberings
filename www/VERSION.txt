@@ -1,0 +1,2 @@
+version=1.0.0-stable
+sha256=766810837ccde1ae3bd29def988a24529e90c8aee1531bfb95a2aabeecfdbbf3
