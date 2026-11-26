@@ -2055,6 +2055,10 @@ function storeSet(k, v) {
       window.pywebview.api.kv_set({ key: k, value: v });
       return { ok: true, persistent: true };
     }
+    if (window.__useHttpKV && typeof window.__httpKvSet === 'function') {
+      window.__httpKvSet(k, v);
+      return { ok: true, persistent: true };
+    }
   } catch (e) {}
   if (!probeLocalStorage()) {
     return { ok: true, persistent: false, fallback: true, error: _lsBlockReason || explainStorageError({ message: 'localStorage unavailable' }, k, bytes) };
@@ -6884,6 +6888,46 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawChar
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(patch, 30); });
   else setTimeout(patch, 30);
+})();
+</script>
+
+
+<script>
+/* ===== HTTP API persistence (desktop server without pywebview) ===== */
+(function(){
+  const API = (location.origin || '') + '/api/kv';
+  window.__deskKV = window.__deskKV || {};
+  window.__useHttpKV = true;
+
+  window.__deskBootHttp = async function() {
+    try {
+      const r = await fetch(API);
+      if (r.ok) {
+        const all = await r.json();
+        if (all && typeof all === 'object') window.__deskKV = all;
+      }
+    } catch (e) { console.warn('kv load', e); }
+    window.__deskReady = true;
+    try { document.dispatchEvent(new CustomEvent('desktop-db-ready')); } catch (e) {}
+  };
+
+  const _origSet = window.storeSet;
+  window.__httpKvSet = function(key, value) {
+    window.__deskKV[key] = value;
+    try {
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: key, value: value })
+      }).catch(function(){});
+    } catch (e) {}
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ window.__deskBootHttp && window.__deskBootHttp(); });
+  } else {
+    setTimeout(function(){ window.__deskBootHttp && window.__deskBootHttp(); }, 0);
+  }
 })();
 </script>
 
